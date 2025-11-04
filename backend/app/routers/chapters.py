@@ -29,8 +29,8 @@ def create_chapter(
     db.commit()
     db.refresh(db_chapter)
     
-    # Run NER in background (English)
-    background_tasks.add_task(process_chapter_ner, db_chapter.id, 'en', db)
+    # Run NER in background (English) - removed db parameter
+    background_tasks.add_task(process_chapter_ner, db_chapter.id, 'en')
     
     return db_chapter
 
@@ -63,8 +63,8 @@ def update_chapter(
     # Recalculate word count if content changed
     if 'content' in update_data:
         update_data['word_count'] = len(update_data['content'].split())
-        # Re-run NER if content changed significantly
-        background_tasks.add_task(process_chapter_ner, chapter_id, 'en', db)
+        # Re-run NER if content changed - removed db parameter
+        background_tasks.add_task(process_chapter_ner, chapter_id, 'en')
     
     for key, value in update_data.items():
         setattr(db_chapter, key, value)

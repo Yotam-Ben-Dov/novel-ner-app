@@ -4,8 +4,8 @@ const API_BASE = 'http://localhost:8000/api';
 
 export const api = {
   // Projects
-  getProjects: () => axios.get(`${API_BASE}/projects`),
-  createProject: (data) => axios.post(`${API_BASE}/projects`, data),
+  getProjects: () => axios.get(`${API_BASE}/projects/`),
+  createProject: (data) => axios.post(`${API_BASE}/projects/`, data),
   getProject: (id) => axios.get(`${API_BASE}/projects/${id}`),
   deleteProject: (id) => axios.delete(`${API_BASE}/projects/${id}`),
   

@@ -41,7 +41,7 @@ class Entity(Base):
     entity_type = Column(String)  # 'character', 'location', 'organization', 'item', 'concept'
     description = Column(Text, nullable=True)  # Character background, location details, etc.
     aliases = Column(JSON, default=[])  # Alternative names ["John", "Johnny", "Mr. Smith"]
-    metadata = Column(JSON, default={})  # Flexible field for custom attributes
+    extra_data = Column(JSON, default={})  # Flexible field for custom attributes
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
