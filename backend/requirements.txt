@@ -1,8 +1,27 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-pydantic==2.5.0
-python-dotenv==1.0.0
-spacy==3.7.2
-alembic==1.13.0
+# Core FastAPI
+fastapi
+uvicorn[standard]
+python-dotenv
+
+# Database
+sqlalchemy
+psycopg2-binary
+
+# NLP
+spacy
+
+# Modern Langchain ecosystem (all latest stable)
+langchain
+langchain-core
+langchain-community
+langchain-text-splitters
+langchain-anthropic
+langchain-voyageai
+langchain-chroma
+
+# AI providers
+anthropic
+voyageai
+
+# Vector store
+chromadb

@@ -2,7 +2,7 @@ import spacy
 from sqlalchemy.orm import Session
 from .. import models
 from ..database import SessionLocal
-import sys
+from .entity_resolver import EntityResolver
 
 nlp_en = None
 
@@ -13,23 +13,17 @@ def get_nlp():
         try:
             nlp_en = spacy.load("en_core_web_trf")
             print("✓ Loaded en_core_web_trf model", flush=True)
-        except Exception as e:
-            print(f"⚠ Could not load en_core_web_trf: {e}", flush=True)
+        except:
             try:
                 nlp_en = spacy.load("en_core_web_sm")
                 print("✓ Loaded en_core_web_sm model", flush=True)
-            except Exception as e2:
-                print(f"✗ Failed to load spaCy model: {e2}", flush=True)
+            except Exception as e:
+                print(f"✗ Failed to load spaCy model: {e}", flush=True)
                 raise
     return nlp_en
 
 def process_chapter_ner(chapter_id: int, language: str):
     """Extract entities from chapter and create Entity + EntityMention records"""
-    print(f"\n{'='*60}", flush=True)
-    print(f"🚀 NER BACKGROUND TASK STARTED for Chapter {chapter_id}", flush=True)
-    print(f"{'='*60}\n", flush=True)
-    
-    # Create a NEW database session for the background task
     db = SessionLocal()
     
     try:
@@ -38,10 +32,9 @@ def process_chapter_ner(chapter_id: int, language: str):
             print(f"✗ Chapter {chapter_id} not found in database", flush=True)
             return
         
-        print(f"✓ Found chapter: {chapter.title or 'Untitled'}", flush=True)
-        print(f"   Project ID: {chapter.project_id}", flush=True)
-        print(f"   Content length: {len(chapter.content)} characters", flush=True)
-        print(f"   Content preview: {chapter.content[:100]}...", flush=True)
+        print(f"\n{'='*60}", flush=True)
+        print(f"🚀 NER PROCESSING: Chapter {chapter.chapter_number}", flush=True)
+        print(f"{'='*60}\n", flush=True)
         
         # Clear existing mentions for this chapter
         deleted_count = db.query(models.EntityMention).filter(
@@ -50,61 +43,62 @@ def process_chapter_ner(chapter_id: int, language: str):
         db.commit()
         print(f"✓ Cleared {deleted_count} existing mentions", flush=True)
         
-        print("🔍 Loading NLP model...", flush=True)
         nlp = get_nlp()
-        print("✓ NLP model loaded, processing text...", flush=True)
-        
         doc = nlp(chapter.content)
-        print(f"✓ Text processed, found {len(doc.ents)} raw entities", flush=True)
         
         # Entity type mapping
         type_mapping = {
             'PERSON': 'character',
-            'GPE': 'location',  # Geopolitical entity
+            'GPE': 'location',
             'LOC': 'location',
             'ORG': 'organization',
-            'FAC': 'location',  # Facility
+            'FAC': 'location',
             'PRODUCT': 'item',
             'EVENT': 'concept',
             'WORK_OF_ART': 'concept',
-            'NORP': 'concept',  # Nationalities, religious/political groups
+            'NORP': 'concept',
         }
         
-        entities_found = 0
+        entities_created = 0
+        entities_reused = 0
         mentions_created = 0
-        skipped_entities = []
         
         for ent in doc.ents:
-            print(f"   Processing: '{ent.text}' (type: {ent.label_})", flush=True)
             entity_type = type_mapping.get(ent.label_, None)
-            
-            # Skip if not a relevant entity type
             if not entity_type:
-                skipped_entities.append(f"{ent.text} ({ent.label_})")
                 continue
             
-            entities_found += 1
+            # Normalize the entity name
+            normalized_name = EntityResolver.normalize_name(ent.text)
             
-            # Check if entity already exists (case-insensitive)
-            existing_entity = db.query(models.Entity).filter(
-                models.Entity.project_id == chapter.project_id,
-                models.Entity.name.ilike(ent.text)
-            ).first()
+            # Skip very short names (likely noise)
+            if len(normalized_name) < 2:
+                continue
             
-            if not existing_entity:
+            # Find similar existing entities
+            similar = EntityResolver.find_similar_entities(
+                db, chapter.project_id, normalized_name, entity_type, threshold=0.85
+            )
+            
+            if similar and similar[0][1] >= 0.85:  # High confidence match
+                existing_entity = similar[0][0]
+                entities_reused += 1
+                print(f"   ↻ Matched '{ent.text}' → '{existing_entity.name}' ({similar[0][1]:.2f})", flush=True)
+            else:
+                # Create new entity with normalized name
                 existing_entity = models.Entity(
                     project_id=chapter.project_id,
-                    name=ent.text,
-                    entity_type=entity_type
+                    name=normalized_name,
+                    entity_type=entity_type,
+                    aliases=[ent.text] if ent.text != normalized_name else []
                 )
                 db.add(existing_entity)
                 db.commit()
                 db.refresh(existing_entity)
-                print(f"      ✓ Created new entity: {ent.text} ({entity_type})", flush=True)
-            else:
-                print(f"      ↻ Using existing entity: {ent.text} ({entity_type})", flush=True)
+                entities_created += 1
+                print(f"   ✓ Created: {normalized_name} ({entity_type})", flush=True)
             
-            # Create mention with context
+            # Create mention
             context_start = max(0, ent.start_char - 50)
             context_end = min(len(chapter.content), ent.end_char + 50)
             context = chapter.content[context_start:context_end]
@@ -123,18 +117,11 @@ def process_chapter_ner(chapter_id: int, language: str):
         db.commit()
         
         print(f"\n{'='*60}", flush=True)
-        print(f"✅ NER COMPLETE", flush=True)
-        print(f"   Entities found: {entities_found}", flush=True)
-        print(f"   Mentions created: {mentions_created}", flush=True)
-        if skipped_entities:
-            print(f"   Skipped entities: {', '.join(skipped_entities[:5])}", flush=True)
+        print(f"✅ COMPLETE: {entities_created} new, {entities_reused} matched, {mentions_created} mentions", flush=True)
         print(f"{'='*60}\n", flush=True)
         
     except Exception as e:
-        print(f"\n{'='*60}", flush=True)
-        print(f"❌ ERROR IN NER PROCESSING", flush=True)
-        print(f"   Error: {e}", flush=True)
-        print(f"{'='*60}\n", flush=True)
+        print(f"\n❌ ERROR: {e}\n", flush=True)
         db.rollback()
         import traceback
         traceback.print_exc()

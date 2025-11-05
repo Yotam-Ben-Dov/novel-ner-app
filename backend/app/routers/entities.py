@@ -94,3 +94,201 @@ def delete_entity(entity_id: int, db: Session = Depends(get_db)):
     db.delete(entity)
     db.commit()
     return {"message": "Entity deleted"}
+
+@router.post("/merge")
+def merge_entities(
+    keep_id: int,
+    merge_ids: List[int],
+    db: Session = Depends(get_db)
+):
+    """Merge multiple entities into one"""
+    from ..services.entity_resolver import EntityResolver
+    
+    EntityResolver.merge_entities(db, keep_id, merge_ids)
+    return {"message": f"Merged {len(merge_ids)} entities into entity {keep_id}"}
+
+@router.get("/duplicates/{project_id}")
+def find_duplicate_entities(project_id: int, db: Session = Depends(get_db)):
+    """Find potential duplicate entities"""
+    from ..services.entity_resolver import EntityResolver
+    
+    entities = db.query(models.Entity).filter(
+        models.Entity.project_id == project_id
+    ).all()
+    
+    duplicates = []
+    checked = set()
+    
+    for entity in entities:
+        if entity.id in checked:
+            continue
+        
+        similar = EntityResolver.find_similar_entities(
+            db, project_id, entity.name, entity.entity_type, threshold=0.7
+        )
+        
+        if len(similar) > 1:  # Found duplicates
+            group = [entity.id] + [s[0].id for s in similar if s[0].id != entity.id]
+            duplicates.append({
+                'entities': [
+                    {'id': e.id, 'name': e.name} 
+                    for e in entities if e.id in group
+                ],
+                'similarity': similar[0][1] if similar else 0
+            })
+            checked.update(group)
+    
+    return duplicates
+
+@router.get("/{project_id}/relationships")
+def get_entity_relationships(project_id: int, db: Session = Depends(get_db)):
+    """Get entities that appear together in chapters"""
+    from sqlalchemy import and_, func
+    
+    # Find entities that appear in the same chapters
+    relationships = db.query(
+        models.EntityMention.entity_id.label('entity_1'),
+        models.EntityMention.entity_id.label('entity_2'),
+        func.count(models.EntityMention.chapter_id).label('co_occurrences')
+    ).join(
+        models.EntityMention,
+        and_(
+            models.EntityMention.chapter_id == models.EntityMention.chapter_id,
+            models.EntityMention.entity_id < models.EntityMention.entity_id
+        )
+    ).group_by('entity_1', 'entity_2').all()
+    
+    return relationships
+
+@router.get("/{project_id}/export")
+def export_project(project_id: int, format: str = "json", db: Session = Depends(get_db)):
+    """Export project data (entities, chapters, etc.)"""
+    import json
+    
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    chapters = db.query(models.Chapter).filter(
+        models.Chapter.project_id == project_id
+    ).order_by(models.Chapter.chapter_number).all()
+    
+    entities = db.query(models.Entity).filter(
+        models.Entity.project_id == project_id
+    ).all()
+    
+    export_data = {
+        'project': {
+            'title': project.title,
+            'description': project.description,
+            'is_own_writing': project.is_own_writing
+        },
+        'chapters': [
+            {
+                'number': ch.chapter_number,
+                'title': ch.title,
+                'content': ch.content,
+                'notes': ch.notes,
+                'word_count': ch.word_count
+            }
+            for ch in chapters
+        ],
+        'entities': [
+            {
+                'name': e.name,
+                'type': e.entity_type,
+                'description': e.description,
+                'aliases': e.aliases
+            }
+            for e in entities
+        ]
+    }
+    
+    if format == "json":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=export_data)
+    elif format == "markdown":
+        # Generate markdown format
+        md = f"# {project.title}\n\n"
+        md += f"{project.description}\n\n"
+        md += "## Chapters\n\n"
+        for ch in chapters:
+            md += f"### Chapter {ch.chapter_number}: {ch.title}\n\n"
+            md += f"{ch.content}\n\n"
+        return {"content": md, "format": "markdown"}
+    
+@router.get("/{project_id}/search")
+def search_content(
+    project_id: int,
+    query: str,
+    search_type: str = "all",  # all, chapters, entities
+    db: Session = Depends(get_db)
+):
+    """Search through chapters and entities"""
+    from sqlalchemy import or_
+    
+    results = {
+        'chapters': [],
+        'entities': []
+    }
+    
+    if search_type in ["all", "chapters"]:
+        chapters = db.query(models.Chapter).filter(
+            models.Chapter.project_id == project_id,
+            or_(
+                models.Chapter.content.ilike(f"%{query}%"),
+                models.Chapter.title.ilike(f"%{query}%"),
+                models.Chapter.notes.ilike(f"%{query}%")
+            )
+        ).all()
+        
+        results['chapters'] = [
+            {
+                'id': ch.id,
+                'chapter_number': ch.chapter_number,
+                'title': ch.title,
+                'preview': get_context_preview(ch.content, query)
+            }
+            for ch in chapters
+        ]
+    
+    if search_type in ["all", "entities"]:
+        entities = db.query(models.Entity).filter(
+            models.Entity.project_id == project_id,
+            or_(
+                models.Entity.name.ilike(f"%{query}%"),
+                models.Entity.description.ilike(f"%{query}%")
+            )
+        ).all()
+        
+        results['entities'] = [
+            {
+                'id': e.id,
+                'name': e.name,
+                'type': e.entity_type,
+                'description': e.description
+            }
+            for e in entities
+        ]
+    
+    return results
+
+def get_context_preview(text: str, query: str, context_length: int = 100):
+    """Get preview of text around the search query"""
+    lower_text = text.lower()
+    lower_query = query.lower()
+    
+    pos = lower_text.find(lower_query)
+    if pos == -1:
+        return text[:context_length] + "..."
+    
+    start = max(0, pos - context_length // 2)
+    end = min(len(text), pos + len(query) + context_length // 2)
+    
+    preview = text[start:end]
+    if start > 0:
+        preview = "..." + preview
+    if end < len(text):
+        preview = preview + "..."
+    
+    return preview

@@ -3,6 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useState, useEffect } from 'react';
 import EntitySidebar from './EntitySidebar';
+import AIAssistant from './AIAssistant';
+import RichTextEditor from './RichTextEditor';
+import VersionHistory from './VersionHistory';
 
 export default function ChapterEditor() {
   const { projectId } = useParams();
@@ -61,10 +64,10 @@ export default function ChapterEditor() {
 
   const updateChapterMutation = useMutation({
     mutationFn: ({ chapterId, data }) => api.updateChapter(chapterId, data),
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries(['chapter', selectedChapter]);
       queryClient.invalidateQueries(['chapters', projectId]);
-      queryClient.invalidateQueries(['entities', projectId]);
+
     }
   });
 
@@ -152,12 +155,10 @@ export default function ChapterEditor() {
             </div>
             <div style={{ marginBottom: '8px' }}>
               <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Content *</label>
-              <textarea
-                value={newChapter.content}
-                onChange={(e) => setNewChapter({ ...newChapter, content: e.target.value })}
-                style={{ width: '100%', padding: '6px', minHeight: '100px', marginTop: '4px' }}
-                placeholder="Write or paste chapter content..."
-                required
+              <RichTextEditor
+                content={content}
+                onChange={setContent}
+                placeholder="Write or paste your chapter content here..."
               />
             </div>
             <button type="submit" style={{ width: '100%', padding: '8px', cursor: 'pointer' }}>
@@ -217,6 +218,7 @@ export default function ChapterEditor() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
+                <VersionHistory chapterId={selectedChapter}/>
                 <button 
                   onClick={handleSave} 
                   disabled={updateChapterMutation.isLoading}
@@ -249,21 +251,10 @@ export default function ChapterEditor() {
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <label style={{ fontWeight: 'bold', marginBottom: '8px' }}>Content</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
+              <RichTextEditor
+                content={content}
+                onChange={setContent}
                 placeholder="Write or paste your chapter content here..."
-                style={{
-                  flex: 1,
-                  padding: '15px',
-                  fontFamily: 'Georgia, serif',
-                  fontSize: '16px',
-                  lineHeight: '1.8',
-                  resize: 'none',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  marginBottom: '15px'
-                }}
               />
               
               <label style={{ fontWeight: 'bold', marginBottom: '8px' }}>Notes (optional)</label>
@@ -302,6 +293,8 @@ export default function ChapterEditor() {
       {selectedChapter && (
         <EntitySidebar projectId={projectId} chapterId={selectedChapter} />
       )}
+      {/* AI Assistant - floating button */}
+        <AIAssistant projectId={projectId} />
     </div>
   );
 }

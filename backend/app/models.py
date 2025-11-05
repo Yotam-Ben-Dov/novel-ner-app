@@ -16,6 +16,22 @@ class Project(Base):
     chapters = relationship("Chapter", back_populates="project", cascade="all, delete-orphan")
     entities = relationship("Entity", back_populates="project", cascade="all, delete-orphan")
 
+class ChapterVersion(Base):
+    __tablename__ = "chapter_versions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    chapter_id = Column(Integer, ForeignKey("chapters.id"))
+    version_number = Column(Integer)
+    content = Column(Text)
+    notes = Column(Text, nullable=True)
+    word_count = Column(Integer)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(String, nullable=True)  # Future: user system
+    change_summary = Column(String, nullable=True)  # "Added scene with Dumbledore"
+    
+    chapter = relationship("Chapter", back_populates="versions")
+
+
 class Chapter(Base):
     __tablename__ = "chapters"
     
@@ -28,6 +44,7 @@ class Chapter(Base):
     word_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    versions = relationship("ChapterVersion", back_populates="chapter", cascade="all, delete-orphan")
     
     project = relationship("Project", back_populates="chapters")
     entity_mentions = relationship("EntityMention", back_populates="chapter", cascade="all, delete-orphan")

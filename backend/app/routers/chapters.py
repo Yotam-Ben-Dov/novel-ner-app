@@ -94,3 +94,116 @@ def delete_chapter(chapter_id: int, db: Session = Depends(get_db)):
     db.delete(chapter)
     db.commit()
     return {"message": "Chapter deleted"}
+
+@router.get("/{chapter_id}/versions")
+def get_chapter_versions(chapter_id: int, db: Session = Depends(get_db)):
+    """Get all versions of a chapter"""
+    versions = db.query(models.ChapterVersion).filter(
+        models.ChapterVersion.chapter_id == chapter_id
+    ).order_by(models.ChapterVersion.version_number.desc()).all()
+    
+    return [
+        {
+            'id': v.id,
+            'version_number': v.version_number,
+            'word_count': v.word_count,
+            'created_at': v.created_at,
+            'change_summary': v.change_summary
+        }
+        for v in versions
+    ]
+
+@router.get("/version/{version_id}")
+def get_version_content(version_id: int, db: Session = Depends(get_db)):
+    """Get full content of a specific version"""
+    version = db.query(models.ChapterVersion).filter(
+        models.ChapterVersion.id == version_id
+    ).first()
+    
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    return {
+        'id': version.id,
+        'version_number': version.version_number,
+        'content': version.content,
+        'notes': version.notes,
+        'word_count': version.word_count,
+        'created_at': version.created_at,
+        'change_summary': version.change_summary
+    }
+
+@router.post("/{chapter_id}/create-version")
+def create_version(
+    chapter_id: int,
+    change_summary: str = None,
+    db: Session = Depends(get_db)
+):
+    """Manually create a version snapshot"""
+    chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    
+    # Get current highest version number
+    max_version = db.query(func.max(models.ChapterVersion.version_number)).filter(
+        models.ChapterVersion.chapter_id == chapter_id
+    ).scalar() or 0
+    
+    # Create new version
+    version = models.ChapterVersion(
+        chapter_id=chapter_id,
+        version_number=max_version + 1,
+        content=chapter.content,
+        notes=chapter.notes,
+        word_count=chapter.word_count,
+        change_summary=change_summary
+    )
+    
+    db.add(version)
+    db.commit()
+    db.refresh(version)
+    
+    return {"message": "Version created", "version_number": version.version_number}
+
+@router.post("/{chapter_id}/restore-version/{version_id}")
+def restore_version(
+    chapter_id: int,
+    version_id: int,
+    db: Session = Depends(get_db)
+):
+    """Restore chapter to a previous version"""
+    chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    
+    version = db.query(models.ChapterVersion).filter(
+        models.ChapterVersion.id == version_id,
+        models.ChapterVersion.chapter_id == chapter_id
+    ).first()
+    
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    # Save current state as a new version before restoring
+    max_version = db.query(func.max(models.ChapterVersion.version_number)).filter(
+        models.ChapterVersion.chapter_id == chapter_id
+    ).scalar() or 0
+    
+    backup_version = models.ChapterVersion(
+        chapter_id=chapter_id,
+        version_number=max_version + 1,
+        content=chapter.content,
+        notes=chapter.notes,
+        word_count=chapter.word_count,
+        change_summary=f"Auto-backup before restoring to v{version.version_number}"
+    )
+    db.add(backup_version)
+    
+    # Restore the old version
+    chapter.content = version.content
+    chapter.notes = version.notes
+    chapter.word_count = version.word_count
+    
+    db.commit()
+    
+    return {"message": f"Restored to version {version.version_number}"}
