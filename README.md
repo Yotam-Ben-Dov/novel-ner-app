@@ -503,7 +503,6 @@ Required security implementations:
 - [ ] Enable HTTPS only
 - [ ] Add database backups
 
-See [SECURITY.md](SECURITY.md) for detailed security roadmap.
 
 ## 🧪 Testing
 
@@ -590,18 +589,6 @@ npm test
 - [ ] Consistency checker
 - [ ] Writing analytics dashboard
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-### **How to Contribute**
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/AmazingFeature`
-3. Commit your changes: `git commit -m 'Add some AmazingFeature'`
-4. Push to the branch: `git push origin feature/AmazingFeature`
-5. Open a Pull Request
-
 ### **Code Style**
 
 **Python:**
@@ -629,9 +616,8 @@ Contributions are welcome! Please follow these guidelines:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 🙏 Acknowledgments
+    God bless claude
 
 ### **Technologies**
 
@@ -645,55 +631,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### **Inspiration**
 
-This project was inspired by the need for better tools to track complex narratives in long-form fiction, particularly webnovels and series with dozens of characters and intricate plot lines.
+This project was inspired by the need for better tools to track complex narratives in long-form fiction, particularly webnovels and series with dozens of characters and intricate plot lines where I just couldn't follow. Some novels have no in-depth wikis, making even finding others being confused hard. So I got annoyed, and built this. Maybe will update further in the future.
 
 ## 📞 Support
-
-### **Getting Help**
-
-- **Documentation:** Check this README and inline code comments
-- **Issues:** Open an issue on GitHub
-- **Discussions:** Use GitHub Discussions for questions
-
-### **Common Questions**
-
-**Q: Can I use this for commercial purposes?**  
-A: Yes, under the MIT license. However, note the AI API costs.
-
-**Q: Do you store my novel content?**  
-A: Everything is stored locally on your machine and in your PostgreSQL database. AI queries send content to Anthropic/Voyage APIs.
-
-**Q: Can I use a different AI model?**  
-A: Yes! The code is modular. You can swap Claude for GPT-4, Gemini, or local models like Llama.
-
-**Q: Does this work offline?**  
-A: Partially. NER works offline, but the AI assistant requires internet for API calls. Use local embeddings for offline vector search.
-
-**Q: How do I backup my data?**  
-A: Backup your PostgreSQL database and the `vector_db/` folder regularly.
-
-## 🗺️ Roadmap
-
-### **Version 1.1 (Q1 2025)**
-- [ ] User authentication system
-- [ ] Multi-language NER support
-- [ ] Character relationship graph
-- [ ] Timeline visualization
-- [ ] Enhanced mobile UI
-
-### **Version 1.2 (Q2 2025)**
-- [ ] Real-time collaboration
-- [ ] Advanced analytics dashboard
-- [ ] Export to multiple formats
-- [ ] Consistency checker
-- [ ] Writing goal tracking
-
-### **Version 2.0 (Q3 2025)**
-- [ ] Cloud deployment option
-- [ ] API for third-party integrations
-- [ ] Plugin system
-- [ ] Advanced AI features (plot suggestions, etc.)
-- [ ] Community features
+    None probably, send a dm and see what happens i guess
 
 ## 📊 Project Stats
 
@@ -745,9 +686,22 @@ Create `LICENSE` file:
 ```
 MIT License
 
-Copyright (c) 2024 [Your Name]
+Copyright (c) 2024 Yotam Ben Dov
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge,
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
