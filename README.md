@@ -1,4 +1,4 @@
-# LoreKeeper — New README
+# LoreKeeper
 
 ```markdown
 # 📚 LoreKeeper
